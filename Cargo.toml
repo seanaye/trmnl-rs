@@ -1,0 +1,11 @@
+[workspace]
+members = ["api-key", "server"]
+resolver = "2"
+
+[workspace.dependencies]
+axum = { version = "0.8" }
+chrono = "0.4"
+serde = { version = "1" }
+serde_json = { version = "1" }
+thiserror = { version = "2" }
+tokio = { version = "1.47" }

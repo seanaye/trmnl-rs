@@ -1,0 +1,16 @@
+[package]
+edition = "2024"
+name = "api-key"
+version = "0.1.0"
+
+[features]
+serde = ["dep:serde", "dep:serde-big-array", "uuid/serde"]
+
+[dependencies]
+base32 = "0.5.1"
+chrono = { workspace = true }
+rand = { version = "0.10.0-rc.0" }
+serde = { workspace = true, optional = true, features = ["derive"] }
+serde-big-array = { version = "0.5", optional = true }
+sha3 = "0.11.0-rc.3"
+uuid = { version = "1", features = ["v7"] }
