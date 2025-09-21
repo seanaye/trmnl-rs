@@ -119,7 +119,14 @@ pub enum ParseErr {
 
 pub struct Secret([u8; SECRET_LENGTH]);
 
+impl std::fmt::Debug for Secret {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.debug_tuple("Secret").field(&"REDACTED").finish()
+    }
+}
+
 #[non_exhaustive]
+#[derive(Debug)]
 pub struct ParsedToken {
     version: u8,
     uuid: Uuid,

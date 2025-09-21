@@ -1,5 +1,5 @@
 [workspace]
-members = ["api-key", "server"]
+members = ["api-key", "bmp-encoder", "server"]
 resolver = "2"
 
 [workspace.dependencies]

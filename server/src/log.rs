@@ -1,4 +1,8 @@
-use crate::{extractor::api_key::ApiKeyExtractor, tables::TableErr, trace_err::TraceErr};
+use crate::{
+    extractor::api_key::{ApiKeyExtractor, TokenExtractor},
+    tables::TableErr,
+    trace_err::TraceErr,
+};
 use axum::{Json, extract::State, http::StatusCode};
 use bincode::{Decode, Encode};
 use redb::{Database, TableDefinition};
@@ -44,12 +48,12 @@ struct LogId(u32);
 const LOGS_TABLE: TypedTableDefinition<LogId, LogEntry> = TableDefinition::new("logs");
 
 #[axum::debug_handler(state = Arc<Database>)]
+#[tracing::instrument(ret, skip(db, key))]
 pub async fn log_handler(
-    val: ApiKeyExtractor,
+    key: Option<TokenExtractor>,
     State(db): State<Arc<Database>>,
     Json(content): Json<LogsPayload>,
 ) -> StatusCode {
-    drop(val);
     let _ = tokio::task::spawn_blocking(move || record_logs(db, content)).await;
     StatusCode::NO_CONTENT
 }

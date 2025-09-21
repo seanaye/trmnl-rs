@@ -34,6 +34,7 @@ where
 {
     type Rejection = DeviceIdErr;
 
+    #[tracing::instrument(ret, err, skip(_state))]
     async fn from_request_parts(parts: &mut Parts, _state: &S) -> Result<Self, Self::Rejection> {
         let Some(val) = parts.headers.get("ID") else {
             return Err(DeviceIdErr::MissingHeader);
@@ -57,5 +58,36 @@ pub enum DeviceIdErr {
 impl IntoResponse for DeviceIdErr {
     fn into_response(self) -> axum::response::Response {
         StatusCode::BAD_REQUEST.into_response()
+    }
+}
+
+#[derive(Debug)]
+pub struct DeviceDimensions {
+    pub height: u32,
+    pub width: u32,
+}
+
+impl<S> FromRequestParts<S> for DeviceDimensions
+where
+    S: Send + Sync,
+{
+    type Rejection = StatusCode;
+
+    async fn from_request_parts(parts: &mut Parts, state: &S) -> Result<Self, Self::Rejection> {
+        let Some(Ok(Ok(width))) = parts
+            .headers
+            .get("width")
+            .map(|v| v.to_str().map(|v| v.parse::<u32>()))
+        else {
+            return Err(StatusCode::BAD_REQUEST);
+        };
+        let Some(Ok(Ok(height))) = parts
+            .headers
+            .get("height")
+            .map(|v| v.to_str().map(|v| v.parse::<u32>()))
+        else {
+            return Err(StatusCode::BAD_REQUEST);
+        };
+        Ok(DeviceDimensions { height, width })
     }
 }

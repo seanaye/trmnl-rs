@@ -31,6 +31,7 @@
             pkg-config
             just
             taplo
+            imagemagick
             (
               with fenix.packages.${system};
               combine [

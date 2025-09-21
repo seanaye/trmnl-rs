@@ -1,6 +1,6 @@
 use api_key::{ApiKey, ParsedToken, TokenString};
 use axum::{
-    extract::{FromRef, FromRequestParts},
+    extract::{FromRef, FromRequestParts, OptionalFromRequestParts},
     http::{StatusCode, request::Parts},
 };
 use redb::{Database, ReadableDatabase};
@@ -12,15 +12,17 @@ use crate::{
     tables::{ApiKeyDbRecord, ApiKeyId, KEYS_TABLE, TableErr},
 };
 
-struct TokenExtractor(ParsedToken);
+#[derive(Debug)]
+pub struct TokenExtractor(ParsedToken);
 
-const ACCESS_TOKEN_HEADER: &str = "ACCESS_TOKEN";
+const ACCESS_TOKEN_HEADER: &str = "access-token";
 impl<S> FromRequestParts<S> for TokenExtractor
 where
     S: Send + Sync,
 {
     type Rejection = StatusCode;
 
+    #[tracing::instrument(err, skip(parts, _state))]
     async fn from_request_parts(parts: &mut Parts, _state: &S) -> Result<Self, Self::Rejection> {
         let Some(val) = parts.headers.get(ACCESS_TOKEN_HEADER) else {
             return Err(StatusCode::UNAUTHORIZED);
@@ -39,7 +41,25 @@ where
     }
 }
 
+impl<S> OptionalFromRequestParts<S> for TokenExtractor
+where
+    S: Send + Sync,
+{
+    type Rejection = StatusCode;
+
+    #[tracing::instrument(err, skip(parts, state))]
+    async fn from_request_parts(
+        parts: &mut Parts,
+        state: &S,
+    ) -> Result<Option<Self>, Self::Rejection> {
+        let res: Result<TokenExtractor, StatusCode> =
+            <TokenExtractor as FromRequestParts<S>>::from_request_parts(parts, state).await;
+        Ok(res.ok())
+    }
+}
+
 #[must_use]
+#[derive(Debug)]
 pub struct ApiKeyExtractor {
     pub parsed_token: ParsedToken,
     pub api_key: ApiKey<DeviceId>,
@@ -51,8 +71,10 @@ where
     S: Send + Sync,
 {
     type Rejection = StatusCode;
+    #[tracing::instrument(ret, err, skip(parts, state))]
     async fn from_request_parts(parts: &mut Parts, state: &S) -> Result<Self, Self::Rejection> {
-        let token = TokenExtractor::from_request_parts(parts, state).await?;
+        let token =
+            <TokenExtractor as FromRequestParts<S>>::from_request_parts(parts, state).await?;
         let device_id = DeviceId::from_request_parts(parts, state)
             .await
             .map_err(|_| StatusCode::BAD_REQUEST)?;

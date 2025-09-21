@@ -4,6 +4,7 @@ use crate::{
 };
 use api_key::{ApiKeyPair, TokenString};
 use axum::{Json, extract::State, http::StatusCode, response::IntoResponse};
+use axum_extra::{TypedHeader, headers::Host};
 use chrono::Utc;
 use redb::Database;
 use serde::Serialize;
@@ -41,15 +42,19 @@ impl IntoResponse for SetupErr {
 }
 
 #[axum::debug_handler(state = Arc<Database>)]
+#[tracing::instrument(ret, err, skip(db))]
 pub async fn setup_handler(
     State(db): State<Arc<Database>>,
+    TypedHeader(host): TypedHeader<Host>,
     device: DeviceId,
 ) -> Result<Json<SetupResponse>, SetupErr> {
     let token = tokio::task::spawn_blocking(move || create_and_write_key(db, device)).await??;
     Ok(Json(SetupResponse {
         api_key: token,
         friendly_id: "my_termnl".to_string(),
-        image_url: "http://mira:2443/assets/setup.bmp".parse().unwrap(),
+        image_url: format!("http://{}:2300/app.bmp", host.hostname())
+            .parse()
+            .unwrap(),
         message: "Hello world".to_string(),
     }))
 }
