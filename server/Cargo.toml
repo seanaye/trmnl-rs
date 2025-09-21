@@ -4,9 +4,12 @@ name = "server"
 version = "0.1.0"
 
 [dependencies]
+api-key = { path = "../api-key", features = ["serde"] }
 axum = { workspace = true, features = ["macros"] }
+axum-extra = { version = "0.10", features = ["typed-header"] }
 bincode = { version = "2", features = ["serde"] }
-macaddr = "1"
+chrono = { workspace = true, features = ["serde"] }
+macaddr = { version = "1", features = ["serde"] }
 redb = "3"
 semver = { version = "1", features = ["serde"] }
 serde = { workspace = true, features = ["derive"] }
@@ -16,3 +19,4 @@ tracing = "0.1"
 tracing-subscriber = "0.3"
 typed-bytes = { path = "../typed-bytes", features = ["tracing"] }
 url = { version = "2", features = ["serde"] }
+uuid = { version = "1", features = ["v7"] }

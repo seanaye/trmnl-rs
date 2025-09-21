@@ -1,10 +1,9 @@
-use crate::trace_err::TraceErr;
+use crate::{extractor::api_key::ApiKeyExtractor, tables::TableErr, trace_err::TraceErr};
 use axum::{Json, extract::State, http::StatusCode};
 use bincode::{Decode, Encode};
 use redb::{Database, TableDefinition};
 use serde::{Deserialize, Serialize};
 use std::sync::Arc;
-use thiserror::Error;
 use typed_bytes::{TypedBytes, TypedTableDefinition};
 
 #[derive(Debug, Deserialize)]
@@ -44,31 +43,25 @@ struct LogId(u32);
 
 const LOGS_TABLE: TypedTableDefinition<LogId, LogEntry> = TableDefinition::new("logs");
 
-#[derive(Debug, Error)]
-enum LogError {
-    #[error("{0:?}")]
-    Bincode(#[from] bincode::error::EncodeError),
-    #[error("{0:?}")]
-    Redb(#[from] redb::Error),
-}
-
 #[axum::debug_handler(state = Arc<Database>)]
 pub async fn log_handler(
+    val: ApiKeyExtractor,
     State(db): State<Arc<Database>>,
     Json(content): Json<LogsPayload>,
 ) -> StatusCode {
+    drop(val);
     let _ = tokio::task::spawn_blocking(move || record_logs(db, content)).await;
     StatusCode::NO_CONTENT
 }
 
 #[tracing::instrument(err, skip(db))]
-fn record_logs(db: Arc<Database>, content: LogsPayload) -> Result<(), LogError> {
+fn record_logs(db: Arc<Database>, content: LogsPayload) -> Result<(), TableErr> {
     let tx = db.begin_write().map_err(redb::Error::from)?;
     let mut table = tx.open_table(LOGS_TABLE).map_err(redb::Error::from)?;
     content
         .logs
         .into_iter()
-        .map(|log| -> Result<(), LogError> {
+        .map(|log| -> Result<(), TableErr> {
             let key = TypedBytes::new(log.id)?;
             let val = TypedBytes::new(log)?;
             let _ = table

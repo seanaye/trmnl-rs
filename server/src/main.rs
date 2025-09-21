@@ -8,8 +8,11 @@ use redb::Database;
 
 use crate::{log::log_handler, setup::setup_handler};
 
+mod display;
+mod extractor;
 mod log;
 mod setup;
+mod tables;
 mod trace_err;
 
 #[tokio::main]
