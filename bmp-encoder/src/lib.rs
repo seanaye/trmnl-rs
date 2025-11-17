@@ -77,6 +77,7 @@ struct BmpDibHeader {
 impl BmpDibHeader {
     fn new(bits_per_pixel: u16, width: u32, height: u32) -> Self {
         let data = DataSize::new(bits_per_pixel, width, height);
+        let num_colors = if bits_per_pixel == 1 { 2 } else { 0 };
         Self {
             header_size: 40,
             width,
@@ -87,8 +88,8 @@ impl BmpDibHeader {
             data_size: data,
             hres: 1000,
             vres: 1000,
-            num_colors: 0,
-            num_imp_colors: 0,
+            num_colors,
+            num_imp_colors: num_colors,
         }
     }
 }
