@@ -11,10 +11,12 @@ use axum::{
     routing::{get, post},
 };
 use bytes::Bytes;
-use mousefood::EmbeddedBackend;
+use mousefood::{EmbeddedBackend, EmbeddedBackendConfig};
 use ratatui::{
     Terminal,
+    layout::{Constraint, Flex, Layout, Rect},
     style::Color,
+    text::Text,
     widgets::{Block, Paragraph},
 };
 use redb::Database;
@@ -91,26 +93,30 @@ impl BackgroundThread {
     fn run(self) -> Result<(), std::io::Error> {
         let BackgroundThread { mut rx } = self;
 
-        let mut display = BmpWrapper::new(800, 480);
+        let mut display = BmpWrapper::new_with_scale(800, 480, 2);
         let display_clone = display.clone();
-        let backend = EmbeddedBackend::new(&mut display, Default::default());
+        let backend = EmbeddedBackend::new(&mut display, EmbeddedBackendConfig::default());
         let mut terminal = Terminal::new(backend).unwrap();
-        loop {
-            terminal.draw(|f| {
-                let greeting = Paragraph::new("Hello, world!")
-                    .block(Block::bordered().title("Paragraph"))
-                    .style(Color::Black);
-                f.render_widget(greeting, f.area());
-            })?;
-            if let Some(msg) = rx.blocking_recv() {
-                match msg {
-                    Msg::PrintOut(sender) => {
-                        let d = display_clone.data()?;
-                        sender.send(Bytes::from(d)).unwrap();
-                    }
+        while let Some(msg) = rx.blocking_recv() {
+            match msg {
+                Msg::PrintOut(sender) => {
+                    terminal.draw(|f| {
+                        fn center(area: Rect, vertical: Constraint) -> Rect {
+                            let [area] =
+                                Layout::vertical([vertical]).flex(Flex::Center).areas(area);
+                            area
+                        }
+                        let text = Paragraph::new("Hello world!").centered();
+                        let area = center(f.area(), Constraint::Length(1));
+                        f.render_widget(text, area);
+                    })?;
+
+                    let d = display_clone.data()?;
+                    sender.send(Bytes::from(d)).unwrap();
                 }
             }
         }
+        Ok(())
     }
 }
 
