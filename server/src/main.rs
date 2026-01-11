@@ -22,7 +22,8 @@ use ratatui::{
 use redb::Database;
 use std::{ops::Deref, sync::Arc, time::Duration};
 use tokio::{sync::oneshot, task::JoinHandle};
-use tower_http::{services::ServeDir, trace::TraceLayer};
+use axum::http::header::{CONNECTION, HeaderValue};
+use tower_http::{services::ServeDir, set_header::SetResponseHeaderLayer, trace::TraceLayer};
 use tracing_subscriber::EnvFilter;
 
 mod display;
@@ -100,7 +101,7 @@ impl BackgroundThread {
     fn run(self) -> Result<(), std::io::Error> {
         let BackgroundThread { mut rx, wttr_rx } = self;
 
-        let mut display = BmpWrapper::new_with_scale(800, 480, 2);
+        let mut display = BmpWrapper::new_with_scale(800, 480, 3);
         let display_clone = display.clone();
         let backend = EmbeddedBackend::new(&mut display, EmbeddedBackendConfig::default());
         let mut terminal = Terminal::new(backend).unwrap();
@@ -166,6 +167,10 @@ fn router(state: State) -> Router {
         .route("/app/{filename}", get(app))
         .with_state(state)
         .layer(TraceLayer::new_for_http())
+        .layer(SetResponseHeaderLayer::overriding(
+            CONNECTION,
+            HeaderValue::from_static("close"),
+        ))
 }
 
 #[derive(Clone)]
