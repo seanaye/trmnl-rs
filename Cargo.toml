@@ -2,6 +2,12 @@
 members = ["api-key", "bmp-encoder", "server"]
 resolver = "2"
 
+[workspace.package]
+version = "0.1.0"
+
+[workspace.metadata.crane]
+name = "trmnl-rs"
+
 [workspace.dependencies]
 axum = { version = "0.8" }
 chrono = "0.4"
