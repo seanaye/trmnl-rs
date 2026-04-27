@@ -14,13 +14,13 @@ use bytes::Bytes;
 use mousefood::{EmbeddedBackend, EmbeddedBackendConfig};
 use ratatui::{
     Terminal,
-    layout::{Constraint, Direction, Flex, Layout, Rect},
-    style::Color,
-    text::Text,
-    widgets::{Block, Paragraph},
+    layout::{Constraint, Flex, Layout},
+    widgets::Paragraph,
 };
+use std::path::PathBuf;
 use redb::Database;
 use std::{ops::Deref, sync::Arc, time::Duration};
+
 use tokio::{sync::oneshot, task::JoinHandle};
 use axum::http::header::{CONNECTION, HeaderValue};
 use tower_http::{services::ServeDir, set_header::SetResponseHeaderLayer, trace::TraceLayer};
@@ -82,7 +82,17 @@ impl RatatuiHandle {
         let (tx, rx) = tokio::sync::mpsc::channel(10);
         let wttr_poller = WttrPoller::new(Duration::from_secs(3600)).await;
         let wttr_rx = wttr_poller.subscribe();
-        let handle = tokio::task::spawn_blocking(move || BackgroundThread { rx, wttr_rx }.run());
+        let markdown_path = PathBuf::from(
+            std::env::var("TRMNL_MARKDOWN_PATH").unwrap_or_else(|_| "content.md".to_string()),
+        );
+        let handle = tokio::task::spawn_blocking(move || {
+            BackgroundThread {
+                rx,
+                wttr_rx,
+                markdown_path,
+            }
+            .run()
+        });
         Self {
             handle,
             tx,
@@ -94,12 +104,17 @@ impl RatatuiHandle {
 struct BackgroundThread {
     rx: tokio::sync::mpsc::Receiver<Msg>,
     wttr_rx: tokio::sync::watch::Receiver<WttrResponse>,
+    markdown_path: PathBuf,
 }
 
 impl BackgroundThread {
     #[tracing::instrument(err, skip(self))]
     fn run(self) -> Result<(), std::io::Error> {
-        let BackgroundThread { mut rx, wttr_rx } = self;
+        let BackgroundThread {
+            mut rx,
+            wttr_rx,
+            markdown_path,
+        } = self;
 
         let mut display = BmpWrapper::new_with_scale(800, 480, 3);
         let display_clone = display.clone();
@@ -110,29 +125,34 @@ impl BackgroundThread {
             match msg {
                 Msg::PrintOut(sender) => {
                     terminal.draw(|f| {
-                        let layout = Layout::default()
-                            .direction(Direction::Vertical)
-                            .constraints(vec![
-                                Constraint::Percentage(50),
-                                Constraint::Percentage(50),
-                            ])
-                            .split(f.area());
+                        // Main vertical layout: top bar, middle content, bottom bar
+                        let [top, middle, bottom] = Layout::vertical([
+                            Constraint::Length(2),
+                            Constraint::Fill(1),
+                            Constraint::Length(7),
+                        ])
+                        .areas(f.area());
 
+                        // Date/time at top center
                         let now = chrono::Local::now();
                         let s = now.format("%A %B %e %H:%M").to_string();
-                        let text = Paragraph::new(s).centered();
-                        f.render_widget(text, layout[0]);
+                        f.render_widget(Paragraph::new(s).centered(), top);
 
+                        // Markdown content in center
+                        let markdown_content = std::fs::read_to_string(&markdown_path)
+                            .unwrap_or_else(|_| String::from("*No content available*"));
+                        let [md_area] = Layout::horizontal([Constraint::Percentage(80)])
+                            .flex(Flex::Center)
+                            .areas(middle);
+                        f.render_widget(Paragraph::new(markdown_content), md_area);
+
+                        // Weather in bottom right (33 chars wide, 7 lines tall)
                         let wttr_text = wttr_rx.borrow();
-
-                        // Center the weather text block (33 chars wide, 7 lines tall)
-                        let [wttr_area] = Layout::vertical([Constraint::Length(7)])
-                            .flex(Flex::Center)
-                            .areas(f.area());
-                        let [wttr_area] = Layout::horizontal([Constraint::Length(33)])
-                            .flex(Flex::Center)
-                            .areas(wttr_area);
-
+                        let [_, wttr_area] = Layout::horizontal([
+                            Constraint::Fill(1),
+                            Constraint::Length(33),
+                        ])
+                        .areas(bottom);
                         f.render_widget(
                             Paragraph::new(wttr_text.deref().inner.as_str()),
                             wttr_area,
@@ -194,7 +214,7 @@ impl WttrClient {
     async fn get_weather(&self) -> Result<WttrResponse, reqwest::Error> {
         let res = self
             .client
-            .get("https://wttr.in/?0T")
+            .get("https://wttr.in/?0TQ")
             .header("User-Agent", "curl/7.64.1")
             .send()
             .await?
