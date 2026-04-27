@@ -1,12 +1,7 @@
 # Drinks
-
-## Cocktails
-
 * Mojito
 * Margaritas
 * Red Sangria
-
-## Beer
-
+* High Noon
 * Guiness
 * PBR
