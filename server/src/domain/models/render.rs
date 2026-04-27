@@ -47,7 +47,7 @@ impl DrawTarget for BmpWrapper {
         I: IntoIterator<Item = embedded_graphics::Pixel<Self::Color>>,
     {
         let iter = pixels.into_iter().flat_map(|p| {
-            let is_on = p.1.is_on();
+            let is_on = !p.1.is_on();
             let scale = self.scale;
             (0..scale).flat_map(move |x| {
                 (0..scale).map(move |y| {

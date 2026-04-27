@@ -1,12 +1,12 @@
 # Drinks
 
-### Cocktails
+## Cocktails
 
 * Mojito
 * Margaritas
-* Red Sangrid
+* Red Sangria
 
-### Beer
+## Beer
 
 * Guiness
 * PBR
