@@ -39,7 +39,6 @@
         commonArgs = {
           inherit src;
           strictDeps = true;
-          buildInputs = with pkgs; [ openssl ];
           nativeBuildInputs = with pkgs; [ pkg-config ];
         };
 
