@@ -17,7 +17,7 @@ use ratatui::{
     layout::{Constraint, Flex, Layout},
     widgets::Paragraph,
 };
-use std::path::PathBuf;
+
 use redb::Database;
 use std::{ops::Deref, sync::Arc, time::Duration};
 
@@ -82,14 +82,10 @@ impl RatatuiHandle {
         let (tx, rx) = tokio::sync::mpsc::channel(10);
         let wttr_poller = WttrPoller::new(Duration::from_secs(3600)).await;
         let wttr_rx = wttr_poller.subscribe();
-        let markdown_path = PathBuf::from(
-            std::env::var("TRMNL_MARKDOWN_PATH").unwrap_or_else(|_| "content.md".to_string()),
-        );
         let handle = tokio::task::spawn_blocking(move || {
             BackgroundThread {
                 rx,
                 wttr_rx,
-                markdown_path,
             }
             .run()
         });
@@ -104,17 +100,12 @@ impl RatatuiHandle {
 struct BackgroundThread {
     rx: tokio::sync::mpsc::Receiver<Msg>,
     wttr_rx: tokio::sync::watch::Receiver<WttrResponse>,
-    markdown_path: PathBuf,
 }
 
 impl BackgroundThread {
     #[tracing::instrument(err, skip(self))]
     fn run(self) -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
-        let BackgroundThread {
-            mut rx,
-            wttr_rx,
-            markdown_path,
-        } = self;
+        let BackgroundThread { mut rx, wttr_rx } = self;
 
         let mut display = BmpWrapper::new_with_scale(800, 480, 3);
         let display_clone = display.clone();
@@ -139,12 +130,10 @@ impl BackgroundThread {
                         f.render_widget(Paragraph::new(s).centered(), top);
 
                         // Markdown content in center
-                        let markdown_content = std::fs::read_to_string(&markdown_path)
-                            .unwrap_or_else(|_| String::from("*No content available*"));
                         let [md_area] = Layout::horizontal([Constraint::Percentage(80)])
                             .flex(Flex::Center)
                             .areas(middle);
-                        let md_text = tui_markdown::from_str(&markdown_content);
+                        let md_text = tui_markdown::from_str(include_str!("../../content.md"));
                         f.render_widget(Paragraph::new(md_text), md_area);
 
                         // Weather in bottom right (33 chars wide, 7 lines tall)

@@ -29,7 +29,12 @@
         toolchain = fenix.packages.${system}.stable.toolchain;
         craneLib = (crane.mkLib pkgs).overrideToolchain toolchain;
 
-        src = craneLib.cleanCargoSource ./.;
+        src = pkgs.lib.cleanSourceWith {
+          src = ./.;
+          filter = path: type:
+            (craneLib.filterCargoSources path type)
+            || (builtins.match ".*\.md$" (builtins.baseNameOf path) != null);
+        };
 
         commonArgs = {
           inherit src;

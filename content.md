@@ -1,6 +1,12 @@
-# Hello TRMNL
+# Drinks
 
-Welcome to your dashboard.
+### Cocktails
 
-- Check the weather in the bottom right
-- Edit this file to update the display
+* Mojito
+* Margaritas
+* Red Sangrid
+
+### Beer
+
+* Guiness
+* PBR

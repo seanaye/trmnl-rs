@@ -121,10 +121,10 @@ struct ColorPalette {
 impl Default for ColorPalette {
     fn default() -> Self {
         Self {
-            // Color 0: Black (0, 0, 0, 0)
-            // Color 1: White (255, 255, 255, 0)
-            // This is the correct order - reversed palette triggers image_reverse in firmware
-            colors: [0, 0, 0, 0, 255, 255, 255, 0],
+            // Color 0: White (255, 255, 255, 0)
+            // Color 1: Black (0, 0, 0, 0)
+            // Inverted palette: 0-bits render white, 1-bits render black
+            colors: [255, 255, 255, 0, 0, 0, 0, 0],
         }
     }
 }
