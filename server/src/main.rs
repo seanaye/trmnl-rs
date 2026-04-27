@@ -15,7 +15,7 @@ use mousefood::{EmbeddedBackend, EmbeddedBackendConfig};
 use ratatui::{
     Terminal,
     layout::{Constraint, Flex, Layout},
-    widgets::Paragraph,
+    widgets::{Block, Padding, Paragraph},
 };
 
 use redb::Database;
@@ -136,11 +136,13 @@ impl BackgroundThread {
                         ])
                         .areas(middle);
 
+                        let col_padding = Block::new().padding(Padding::horizontal(4));
+
                         let md_left = tui_markdown::from_str(include_str!("../../content.md"));
-                        f.render_widget(Paragraph::new(md_left), left_col);
+                        f.render_widget(Paragraph::new(md_left).block(col_padding.clone()), left_col);
 
                         let md_right = tui_markdown::from_str(include_str!("../../content2.md"));
-                        f.render_widget(Paragraph::new(md_right), right_col);
+                        f.render_widget(Paragraph::new(md_right).block(col_padding), right_col);
 
                         // Weather in bottom right (33 chars wide, 7 lines tall)
                         let wttr_text = wttr_rx.borrow();
