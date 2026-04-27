@@ -129,12 +129,18 @@ impl BackgroundThread {
                         let s = now.format("%A %B %e %H:%M").to_string();
                         f.render_widget(Paragraph::new(s).centered(), top);
 
-                        // Markdown content in center
-                        let [md_area] = Layout::horizontal([Constraint::Percentage(80)])
-                            .flex(Flex::Center)
-                            .areas(middle);
-                        let md_text = tui_markdown::from_str(include_str!("../../content.md"));
-                        f.render_widget(Paragraph::new(md_text), md_area);
+                        // Markdown content in two columns
+                        let [left_col, right_col] = Layout::horizontal([
+                            Constraint::Percentage(50),
+                            Constraint::Percentage(50),
+                        ])
+                        .areas(middle);
+
+                        let md_left = tui_markdown::from_str(include_str!("../../content.md"));
+                        f.render_widget(Paragraph::new(md_left), left_col);
+
+                        let md_right = tui_markdown::from_str(include_str!("../../content2.md"));
+                        f.render_widget(Paragraph::new(md_right), right_col);
 
                         // Weather in bottom right (33 chars wide, 7 lines tall)
                         let wttr_text = wttr_rx.borrow();
