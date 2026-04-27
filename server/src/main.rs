@@ -55,7 +55,7 @@ async fn main() {
         listener,
         router(State {
             db: Arc::new(db),
-            ratatui: Arc::new(RatatuiHandle::new().await.unwrap()),
+            ratatui: Arc::new(RatatuiHandle::new().await),
         }),
     )
     .await
@@ -78,16 +78,16 @@ impl RatatuiHandle {
         self.tx.send(Msg::PrintOut(tx)).await.unwrap();
         rx.await
     }
-    async fn new() -> Result<Self, reqwest::Error> {
+    async fn new() -> Self {
         let (tx, rx) = tokio::sync::mpsc::channel(10);
-        let wttr_poller = WttrPoller::new(Duration::from_secs(3600)).await?;
+        let wttr_poller = WttrPoller::new(Duration::from_secs(3600)).await;
         let wttr_rx = wttr_poller.subscribe();
         let handle = tokio::task::spawn_blocking(move || BackgroundThread { rx, wttr_rx }.run());
-        Ok(Self {
+        Self {
             handle,
             tx,
             wttr_poller,
-        })
+        }
     }
 }
 
@@ -210,9 +210,15 @@ impl WttrPoller {
         self.rx.clone()
     }
 
-    pub async fn new(poll_duration: Duration) -> Result<Self, reqwest::Error> {
+    pub async fn new(poll_duration: Duration) -> Self {
         let client = WttrClient::new();
-        let res = client.get_weather().await?;
+        let res = match client.get_weather().await {
+            Ok(res) => res,
+            Err(e) => {
+                tracing::warn!("initial weather fetch failed, will retry: {e}");
+                WttrResponse { inner: String::from("Weather unavailable") }
+            }
+        };
 
         let (tx, rx) = tokio::sync::watch::channel(res);
         let bg_handle = tokio::task::spawn(async move {
@@ -225,10 +231,10 @@ impl WttrPoller {
             }
         });
 
-        Ok(WttrPoller {
+        WttrPoller {
             rx,
             bg_handle: Arc::new(bg_handle),
-        })
+        }
     }
 }
 
