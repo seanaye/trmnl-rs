@@ -68,7 +68,7 @@ enum Msg {
 
 struct RatatuiHandle {
     tx: tokio::sync::mpsc::Sender<Msg>,
-    handle: JoinHandle<Result<(), std::io::Error>>,
+    handle: JoinHandle<Result<(), Box<dyn std::error::Error + Send + Sync>>>,
     wttr_poller: WttrPoller,
 }
 
@@ -109,7 +109,7 @@ struct BackgroundThread {
 
 impl BackgroundThread {
     #[tracing::instrument(err, skip(self))]
-    fn run(self) -> Result<(), std::io::Error> {
+    fn run(self) -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
         let BackgroundThread {
             mut rx,
             wttr_rx,
@@ -144,7 +144,8 @@ impl BackgroundThread {
                         let [md_area] = Layout::horizontal([Constraint::Percentage(80)])
                             .flex(Flex::Center)
                             .areas(middle);
-                        f.render_widget(Paragraph::new(markdown_content), md_area);
+                        let md_text = tui_markdown::from_str(&markdown_content);
+                        f.render_widget(Paragraph::new(md_text), md_area);
 
                         // Weather in bottom right (33 chars wide, 7 lines tall)
                         let wttr_text = wttr_rx.borrow();

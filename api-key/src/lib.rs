@@ -1,5 +1,5 @@
 use nom::{Parser, bytes::complete::tag, character::complete::char, combinator::eof};
-use rand::RngCore;
+use rand::Rng;
 use sha3::Digest;
 use std::{borrow::Cow, ops::Deref};
 use thiserror::Error;
