@@ -19,11 +19,16 @@ use ratatui::{
 };
 
 use redb::Database;
-use std::{ops::Deref, sync::Arc, time::Duration};
+use std::{
+    net::{Ipv4Addr, SocketAddrV4},
+    ops::Deref,
+    sync::Arc,
+    time::Duration,
+};
 
+use axum::http::header::{CONNECTION, HeaderValue};
 use todo_parser_rs::TaskBuf;
 use tokio::{sync::oneshot, task::JoinHandle};
-use axum::http::header::{CONNECTION, HeaderValue};
 use tower_http::{services::ServeDir, set_header::SetResponseHeaderLayer, trace::TraceLayer};
 use tracing_subscriber::EnvFilter;
 
@@ -45,7 +50,17 @@ async fn main() {
         .pretty()
         .init();
 
-    let listener = tokio::net::TcpListener::bind("0.0.0.0:2300")
+    let ip = SocketAddrV4::new(
+        Ipv4Addr::new(0, 0, 0, 0),
+        std::env::var("PORT")
+            .map(|x| {
+                x.as_str()
+                    .parse::<u16>()
+                    .expect("Received a non integer port number via env var")
+            })
+            .unwrap_or(2300),
+    );
+    let listener = tokio::net::TcpListener::bind(ip)
         .await
         .expect("failed to bind listener");
     tracing::info!("listening on {}", listener.local_addr().unwrap());
@@ -83,13 +98,7 @@ impl RatatuiHandle {
         let (tx, rx) = tokio::sync::mpsc::channel(10);
         let wttr_poller = WttrPoller::new(Duration::from_secs(3600)).await;
         let wttr_rx = wttr_poller.subscribe();
-        let handle = tokio::task::spawn_blocking(move || {
-            BackgroundThread {
-                rx,
-                wttr_rx,
-            }
-            .run()
-        });
+        let handle = tokio::task::spawn_blocking(move || BackgroundThread { rx, wttr_rx }.run());
         Self {
             handle,
             tx,
@@ -151,11 +160,9 @@ impl BackgroundThread {
 
                         // Weather in bottom right (33 chars wide, 7 lines tall)
                         let wttr_text = wttr_rx.borrow();
-                        let [_, wttr_area] = Layout::horizontal([
-                            Constraint::Fill(1),
-                            Constraint::Length(33),
-                        ])
-                        .areas(bottom);
+                        let [_, wttr_area] =
+                            Layout::horizontal([Constraint::Fill(1), Constraint::Length(33)])
+                                .areas(bottom);
                         f.render_widget(
                             Paragraph::new(wttr_text.deref().inner.as_str()),
                             wttr_area,
@@ -276,7 +283,9 @@ impl WttrPoller {
             Ok(res) => res,
             Err(e) => {
                 tracing::warn!("initial weather fetch failed, will retry: {e}");
-                WttrResponse { inner: String::from("Weather unavailable") }
+                WttrResponse {
+                    inner: String::from("Weather unavailable"),
+                }
             }
         };
 
