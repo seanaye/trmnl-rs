@@ -14,7 +14,7 @@ use bytes::Bytes;
 use mousefood::{EmbeddedBackend, EmbeddedBackendConfig};
 use ratatui::{
     Terminal,
-    layout::{Constraint, Flex, Layout},
+    layout::{Constraint, Layout},
     widgets::{Block, Padding, Paragraph, Wrap},
 };
 
@@ -140,23 +140,23 @@ impl BackgroundThread {
                         f.render_widget(Paragraph::new(s).centered(), top);
 
                         // Top 5 todos in center
-                        let [todo_area] = Layout::horizontal([Constraint::Percentage(80)])
-                            .flex(Flex::Center)
-                            .areas(middle);
                         let todos = top_todos(now.date_naive(), 5);
                         let todo_text = todos
                             .iter()
-                            .map(|t| match t.priority {
-                                Some(p) => format!("({p}) {}", t.description),
-                                None => t.description.clone(),
+                            .map(|t| {
+                                let boxed = if t.completed { "[x]" } else { "[ ]" };
+                                match t.priority {
+                                    Some(p) => format!("{boxed} ({p}) {}", t.description),
+                                    None => format!("{boxed} {}", t.description),
+                                }
                             })
                             .collect::<Vec<_>>()
                             .join("\n");
                         f.render_widget(
                             Paragraph::new(todo_text)
                                 .wrap(Wrap { trim: false })
-                                .block(Block::new().padding(Padding::horizontal(4))),
-                            todo_area,
+                                .block(Block::new().padding(Padding::horizontal(1))),
+                            middle,
                         );
 
                         // Weather in bottom right (33 chars wide, 7 lines tall)
@@ -179,10 +179,12 @@ impl BackgroundThread {
     }
 }
 
-/// Reads `~/todo.txt` and returns the top `limit` incomplete tasks.
+/// Reads `~/todo.txt` and returns the top `limit` tasks.
 ///
-/// Tasks due within 3 days of `today` come first (soonest due date first);
-/// the rest are ordered by priority (A highest, no priority last).
+/// Incomplete tasks come first: those due within 3 days of `today` lead
+/// (soonest due date first), then the rest ordered by priority (A highest,
+/// no priority last). Completed tasks sort last, so they only appear when
+/// there are fewer than `limit` open tasks.
 fn top_todos(today: chrono::NaiveDate, limit: usize) -> Vec<TaskBuf> {
     let path = std::path::PathBuf::from(std::env::var("HOME").unwrap_or_default()).join("todo.txt");
     let content = match std::fs::read_to_string(&path) {
@@ -195,8 +197,7 @@ fn top_todos(today: chrono::NaiveDate, limit: usize) -> Vec<TaskBuf> {
     let cutoff = today + chrono::Days::new(3);
     let mut tasks: Vec<TaskBuf> = content
         .lines()
-        .filter_map(|line| line.parse().ok())
-        .filter(|t: &TaskBuf| !t.completed)
+        .filter_map(|line| line.parse::<TaskBuf>().ok())
         .collect();
     tasks.sort_by_key(|t| {
         let due_soon = t
@@ -206,6 +207,7 @@ fn top_todos(today: chrono::NaiveDate, limit: usize) -> Vec<TaskBuf> {
             })
             .filter(|d| *d < cutoff);
         (
+            t.completed,
             due_soon.is_none(),
             due_soon,
             t.priority.is_none(),
