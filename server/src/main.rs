@@ -166,15 +166,33 @@ impl BackgroundThread {
                             middle,
                         );
 
-                        // Weather in bottom right (33 chars wide, 7 lines tall)
+                        // Weather anchored to the bottom-right corner:
+                        // dedent/trim the wttr art and size the area to fit it exactly.
                         let wttr_text = wttr_rx.borrow();
-                        let [_, wttr_area] =
-                            Layout::horizontal([Constraint::Fill(1), Constraint::Length(33)])
+                        let raw = wttr_text.deref().inner.trim_end_matches(['\n', ' ']);
+                        let indent = raw
+                            .lines()
+                            .filter(|l| !l.trim().is_empty())
+                            .map(|l| l.len() - l.trim_start().len())
+                            .min()
+                            .unwrap_or(0);
+                        let lines: Vec<&str> = raw
+                            .lines()
+                            .map(|l| l.get(indent..).unwrap_or("").trim_end())
+                            .collect();
+                        let width = lines
+                            .iter()
+                            .map(|l| l.chars().count())
+                            .max()
+                            .unwrap_or(0) as u16;
+                        let height = lines.len() as u16;
+                        let [_, wttr_col] =
+                            Layout::horizontal([Constraint::Fill(1), Constraint::Length(width)])
                                 .areas(bottom);
-                        f.render_widget(
-                            Paragraph::new(wttr_text.deref().inner.as_str()),
-                            wttr_area,
-                        );
+                        let [_, wttr_area] =
+                            Layout::vertical([Constraint::Fill(1), Constraint::Length(height)])
+                                .areas(wttr_col);
+                        f.render_widget(Paragraph::new(lines.join("\n")), wttr_area);
                     })?;
 
                     let d = display_clone.data()?;
