@@ -15,7 +15,7 @@ use mousefood::{EmbeddedBackend, EmbeddedBackendConfig};
 use ratatui::{
     Terminal,
     layout::{Constraint, Flex, Layout},
-    widgets::{Block, Padding, Paragraph},
+    widgets::{Block, Padding, Paragraph, Wrap},
 };
 
 use redb::Database;
@@ -154,6 +154,7 @@ impl BackgroundThread {
                             .join("\n");
                         f.render_widget(
                             Paragraph::new(todo_text)
+                                .wrap(Wrap { trim: false })
                                 .block(Block::new().padding(Padding::horizontal(4))),
                             todo_area,
                         );
