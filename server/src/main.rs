@@ -145,9 +145,16 @@ impl BackgroundThread {
                             .iter()
                             .map(|t| {
                                 let boxed = if t.completed { "[x]" } else { "[ ]" };
+                                // Hide the @home context tag from the rendered text
+                                let description = t
+                                    .description
+                                    .split_whitespace()
+                                    .filter(|word| *word != "@home")
+                                    .collect::<Vec<_>>()
+                                    .join(" ");
                                 match t.priority {
-                                    Some(p) => format!("{boxed} ({p}) {}", t.description),
-                                    None => format!("{boxed} {}", t.description),
+                                    Some(p) => format!("{boxed} ({p}) {description}"),
+                                    None => format!("{boxed} {description}"),
                                 }
                             })
                             .collect::<Vec<_>>()
@@ -179,7 +186,7 @@ impl BackgroundThread {
     }
 }
 
-/// Reads `~/todo.txt` and returns the top `limit` tasks.
+/// Reads `~/todo.txt` and returns the top `limit` tasks tagged `@home`.
 ///
 /// Incomplete tasks come first: those due within 3 days of `today` lead
 /// (soonest due date first), then the rest ordered by priority (A highest,
@@ -198,6 +205,7 @@ fn top_todos(today: chrono::NaiveDate, limit: usize) -> Vec<TaskBuf> {
     let mut tasks: Vec<TaskBuf> = content
         .lines()
         .filter_map(|line| line.parse::<TaskBuf>().ok())
+        .filter(|t| t.contexts.iter().any(|c| c == "home"))
         .collect();
     tasks.sort_by_key(|t| {
         let due_soon = t
