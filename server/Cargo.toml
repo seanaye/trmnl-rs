@@ -23,10 +23,10 @@ semver = { version = "1", features = ["serde"] }
 serde = { workspace = true, features = ["derive"] }
 serde_json = { version = "1" }
 thiserror = { workspace = true }
+todo-parser-rs = { git = "https://tangled.org/seanaye.bsky.social/todo-parser-rs" }
 tokio = { workspace = true, features = ["full"] }
 tower-http = { version = "0.6", features = ["trace", "fs", "set-header"] }
 tracing = "0.1"
-tui-markdown = "0.3.7"
 tracing-subscriber = { version = "0.3", features = ["env-filter"] }
 typed-bytes = { path = "../typed-bytes", features = ["tracing"] }
 url = { version = "2", features = ["serde"] }

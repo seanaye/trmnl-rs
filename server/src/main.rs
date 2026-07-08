@@ -21,6 +21,7 @@ use ratatui::{
 use redb::Database;
 use std::{ops::Deref, sync::Arc, time::Duration};
 
+use todo_parser_rs::TaskBuf;
 use tokio::{sync::oneshot, task::JoinHandle};
 use axum::http::header::{CONNECTION, HeaderValue};
 use tower_http::{services::ServeDir, set_header::SetResponseHeaderLayer, trace::TraceLayer};
@@ -129,20 +130,24 @@ impl BackgroundThread {
                         let s = now.format("%A %B %e %H:%M").to_string();
                         f.render_widget(Paragraph::new(s).centered(), top);
 
-                        // Markdown content in two columns
-                        let [left_col, right_col] = Layout::horizontal([
-                            Constraint::Percentage(50),
-                            Constraint::Percentage(50),
-                        ])
-                        .areas(middle);
-
-                        let col_padding = Block::new().padding(Padding::horizontal(4));
-
-                        let md_left = tui_markdown::from_str(include_str!("../../content.md"));
-                        f.render_widget(Paragraph::new(md_left).block(col_padding.clone()), left_col);
-
-                        let md_right = tui_markdown::from_str(include_str!("../../content2.md"));
-                        f.render_widget(Paragraph::new(md_right).block(col_padding), right_col);
+                        // Top 5 todos in center
+                        let [todo_area] = Layout::horizontal([Constraint::Percentage(80)])
+                            .flex(Flex::Center)
+                            .areas(middle);
+                        let todos = top_todos(now.date_naive(), 5);
+                        let todo_text = todos
+                            .iter()
+                            .map(|t| match t.priority {
+                                Some(p) => format!("({p}) {}", t.description),
+                                None => t.description.clone(),
+                            })
+                            .collect::<Vec<_>>()
+                            .join("\n");
+                        f.render_widget(
+                            Paragraph::new(todo_text)
+                                .block(Block::new().padding(Padding::horizontal(4))),
+                            todo_area,
+                        );
 
                         // Weather in bottom right (33 chars wide, 7 lines tall)
                         let wttr_text = wttr_rx.borrow();
@@ -164,6 +169,43 @@ impl BackgroundThread {
         }
         Ok(())
     }
+}
+
+/// Reads `~/todo.txt` and returns the top `limit` incomplete tasks.
+///
+/// Tasks due within 3 days of `today` come first (soonest due date first);
+/// the rest are ordered by priority (A highest, no priority last).
+fn top_todos(today: chrono::NaiveDate, limit: usize) -> Vec<TaskBuf> {
+    let path = std::path::PathBuf::from(std::env::var("HOME").unwrap_or_default()).join("todo.txt");
+    let content = match std::fs::read_to_string(&path) {
+        Ok(c) => c,
+        Err(e) => {
+            tracing::warn!("failed to read {}: {e}", path.display());
+            return Vec::new();
+        }
+    };
+    let cutoff = today + chrono::Days::new(3);
+    let mut tasks: Vec<TaskBuf> = content
+        .lines()
+        .filter_map(|line| line.parse().ok())
+        .filter(|t: &TaskBuf| !t.completed)
+        .collect();
+    tasks.sort_by_key(|t| {
+        let due_soon = t
+            .due_date()
+            .and_then(|d| {
+                chrono::NaiveDate::from_ymd_opt(d.year() as i32, d.month() as u32, d.day() as u32)
+            })
+            .filter(|d| *d < cutoff);
+        (
+            due_soon.is_none(),
+            due_soon,
+            t.priority.is_none(),
+            t.priority,
+        )
+    });
+    tasks.truncate(limit);
+    tasks
 }
 
 #[derive(Clone, FromRef)]
